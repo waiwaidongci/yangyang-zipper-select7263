@@ -32,25 +32,36 @@ PYTHONPATH=backend python3 -m src.domain.fixtures > /tmp/zipper-pull-test.csv
 | 登录 | `POST /api/auth/login` | `email`、`password`，响应含 `access_token`。受保护接口使用 `Authorization: Bearer <token>` |
 | 台账 | `GET /api/spec`、`GET /api/datasets`、`GET /api/datasets/{id}` | 字段及参数契约、数据集列表、分页试片 |
 | 导入 | `POST /api/datasets` | JSON 对象含 `name`、`csv`，其中 `csv` 为整个 CSV 文件的文本 |
-| 运行 | `POST /api/runs` | `dataset_id`、`label` 和可选 `settings`，提交后返回运行 ID |
-| 结果 | `GET /api/runs/{id}` | 查询 `status`，完成后读取 `result`，失败时读取 `error` |
-| 复核 | `POST /api/runs/{id}/review` | `decision` 和 `note`，由管理员提交 |
-| 导出 | `GET /api/runs/{id}/export/{key}` | 签核通过后按结果表键下载 UTF-8 CSV |
-| 审计 | `GET /api/audit` | 管理员查看导入、运行与复核事件 |
+| 卷料 | `GET /api/coils/registrations` | 当前卷号（按更正序号折叠）与最新划分快照 |
+| 卷料登记 | `POST /api/coils/registrations` | `entries`（批次、卷号、更正序号）及两侧约定批数，触发防串样重划与失效重算；无解返回 409 |
+| 运行 | `POST /api/runs` | `dataset_id`、`label` 和可选 `settings`，提交后返回运行 ID，自动绑定当前卷料划分 |
+| 结果 | `GET /api/runs/{id}` | 查询 `status`，完成后读取 `result`，失败时读取 `error`；`superseded` 表示卷号更新后失效 |
+| 复核 | `POST /api/runs/{id}/review` | `decision` 和 `note`，由管理员提交；失效运行返回 409 |
+| 导出 | `GET /api/runs/{id}/export/{key}` | 签核通过后按结果表键下载 UTF-8 CSV，已签核报告始终为签核时原版 |
+| 审计 | `GET /api/audit` | 管理员查看导入、卷料、运行与复核事件 |
 
 ## 开发
 
 | 路径 | 工具与职责 |
 |---|---|
-| `backend/src/domain/` | Python 标准库实现输入校验、种子、Elastic Net、稳定点位和批次误差 |
-| `backend/src/routes/`、`services/`、`models/` | FastAPI、SQLAlchemy、JWT 权限、队列和结果持久化 |
-| `backend/scripts/`、`migrations/` | 幂等演示数据、数据库引导和 worker 心跳 |
+| `backend/src/domain/coils.py` | 标准库实现卷料登记折叠、并查集连通件与最少挪动划分（无解抛 `SplitConflict`） |
+| `backend/src/domain/` | Python 标准库实现输入校验、种子、Elastic Net、稳定点位、批次误差与卷料划分 |
+| `backend/src/routes/`、`services/`、`models/` | FastAPI、SQLAlchemy、JWT 权限、队列、卷料版本化和结果持久化 |
+| `backend/scripts/`、`migrations/` | 幂等演示数据（含卷料登记与首版划分）、数据库引导和 worker 心跳 |
+| `backend/tests/` | 纯标准库的卷料规则与服务编排离线测试，`tests/stubs` 提供第三方包替身 |
 | `../../test-artifacts/yangyang-zipper-select/tests/oracle.py` | 独立近端梯度求解、闭式样本、批次隔离及 CSV 断言 |
 
-本地数值验证使用 Python，无需启动服务。
+本地数值验证使用 Python，无需启动服务或安装第三方依赖（`-I` 隔离环境，替身仅测试期加载）。
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -I backend/tests/test_coils.py
+PYTHONDONTWRITEBYTECODE=1 python3 -I backend/tests/test_services.py
+```
+
+另有不依赖卷料功能的原有数值口径验证：
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=backend python3 ../../test-artifacts/yangyang-zipper-select/tests/oracle.py
 ```
 
-`backend/src/constants/workflow.py` 定义 `admin/analyst/viewer`、`queued/running/completed/failed` 及 `approved/rejected`，分别用于路由鉴权、worker 状态和签核下载。`backend/src/domain/records.py` 定义 `train/holdout/pending`，用于整批导入校验和计算分区。第三方依赖使用各自的许可证。
+`backend/src/constants/workflow.py` 定义 `admin/analyst/viewer`、`queued/running/completed/failed/superseded` 及 `approved/rejected`，分别用于路由鉴权、worker 状态（含卷料失效）和签核下载。`backend/src/domain/records.py` 定义 `train/holdout/pending`，用于整批导入校验和计算分区。第三方依赖使用各自的许可证。

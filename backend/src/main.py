@@ -7,10 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from migrations.bootstrap import bootstrap
 from scripts.seed_demo import seed
 from src.config.settings import SEED_DEMO
+from src.domain.coils import SplitConflict
 from src.middlewares.body_limit import BodyLimit
-from src.middlewares.errors import data_conflict, invalid_data, missing_data
+from src.middlewares.errors import data_conflict, invalid_data, missing_data, split_conflict
 from src.middlewares.request_id import request_id
-from src.routes import auth, datasets, runs, system
+from src.routes import auth, coils, datasets, runs, system
 
 
 @asynccontextmanager
@@ -29,8 +30,9 @@ app.add_middleware(BodyLimit)
 app.middleware('http')(request_id)
 app.add_exception_handler(ValueError, invalid_data)
 app.add_exception_handler(LookupError, missing_data)
+app.add_exception_handler(SplitConflict, split_conflict)
 app.add_exception_handler(IntegrityError, data_conflict)
 api = APIRouter(prefix='/api')
-for module in (system, auth, datasets, runs):
+for module in (system, auth, datasets, runs, coils):
     api.include_router(module.router)
 app.include_router(api)

@@ -9,12 +9,13 @@ from src.models.review import Review
 from src.models.run import Run
 from src.services.audit import record
 from src.services.catalog import get_dataset
+from src.services.coils import latest_plan
 from src.services.queue import notify_worker
 from src.utils.time import utc_stamp
 
 
 def run_info(run, review):
-    fields = ('id', 'label', 'dataset_id', 'created_at', 'status', 'settings')
+    fields = ('id', 'label', 'dataset_id', 'created_at', 'status', 'settings', 'coil_version')
     return {**{key: getattr(run, key) for key in fields}, 'decision': review.decision if review else None}
 
 
@@ -50,8 +51,16 @@ def validate_settings(settings):
 
 def create_run(session, payload, actor):
     get_dataset(session, payload.dataset_id)
+    settings = validate_settings(payload.settings)
+    plan = latest_plan(session)
+    if plan is not None:
+        # 运行绑定当前划分；约定批数跟随划分快照，避免与划分口径不一致。
+        settings["min_train_batches"] = plan.plan["min_train_batches"]
+        settings["min_holdout_batches"] = plan.plan["min_holdout_batches"]
     run = Run(label=payload.label, dataset_id=payload.dataset_id, created_by=actor.id,
-              created_at=utc_stamp(), status=RunStatus.QUEUED, settings=validate_settings(payload.settings))
+              created_at=utc_stamp(), status=RunStatus.QUEUED, settings=settings,
+              coil_version=plan.coil_version if plan else None,
+              split_snapshot=plan.plan if plan else None)
     session.add(run)
     session.flush()
     record(session, 'run.queued', run.id, actor.id)

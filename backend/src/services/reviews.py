@@ -16,6 +16,8 @@ def submit(session, run_id, payload, actor):
     run = session.scalar(select(Run).where(Run.id == run_id).with_for_update())
     if not run:
         raise LookupError('找不到运行')
+    if run.status == RunStatus.SUPERSEDED:
+        raise HTTPException(409, '上游卷号已更新，该结果已失效，不能签核；请复核按新划分重算的运行。')
     if run.status != RunStatus.COMPLETED or session.get(Review, run_id):
         raise HTTPException(409, '仅可复核一次，且计算必须成功完成')
     review = Review(run_id=run_id, reviewer_id=actor.id, decision=payload.decision,

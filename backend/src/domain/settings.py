@@ -26,6 +26,8 @@ SETTINGS = [
     {"key": "min_frequency", "label": "最低入选频率", "default": 0.7, "min": 0.5, "max": 1, "step": 0.05},
     {"key": "budget_seconds", "label": "单片布点时长预算（秒）", "default": 12, "min": 1, "max": 45, "step": 1},
     {"key": "retest_force_n", "label": "破坏力复测提示线（N）", "default": 108, "min": 1, "max": 5000, "step": 1},
+    {"key": "min_train_batches", "label": "训练侧约定最少批数", "default": 3, "min": 1, "max": 64, "step": 1},
+    {"key": "min_holdout_batches", "label": "独立验证侧约定最少批数", "default": 2, "min": 1, "max": 64, "step": 1},
 ]
 SPEC = {
     "columns": list(COLUMNS),

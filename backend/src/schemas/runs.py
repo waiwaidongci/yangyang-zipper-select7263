@@ -18,3 +18,4 @@ class RunInfo(BaseModel):
     status: RunStatus
     settings: dict
     decision: str | None
+    coil_version: int | None = None

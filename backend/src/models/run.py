@@ -16,3 +16,5 @@ class Run(Base):
     settings: Mapped[dict] = mapped_column(JSON)
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error: Mapped[str | None] = mapped_column(Text)
+    coil_version: Mapped[int | None] = mapped_column(nullable=True, index=True)
+    split_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)

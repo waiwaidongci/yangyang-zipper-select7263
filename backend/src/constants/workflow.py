@@ -12,6 +12,7 @@ class RunStatus(StrEnum):
     RUNNING = 'running'
     COMPLETED = 'completed'
     FAILED = 'failed'
+    SUPERSEDED = 'superseded'
 
 
 class Decision(StrEnum):
